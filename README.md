@@ -1,6 +1,3 @@
-# temp
-/* Infix notation calculator with operator precedence and parentheses */
-
 %{
 #define YYSTYPE double
 #include <stdio.h>
@@ -11,70 +8,67 @@ int yylex(void);
 void yyerror(const char *s);
 %}
 
-/* Operator precedence: from lowest to highest */
-%left '+' '-'
-%left '*' '/'
-%right '^'
-%right UMINUS  /* Unary minus */
-
 %token NUM
 
 %%
 
 input:
-      /* empty */
-    | input line
-    ;
+    /* boş */
+  | input line
+  ;
 
 line:
-      '\n'
-    | exp '\n'   { printf("\t%.10g\n", $1); }
-    ;
+    '\n'
+  | exp '\n' { printf("\t%.10g\n", $1); }
+  ;
 
 exp:
-      NUM                 { $$ = $1; }
-    | exp '+' exp         { $$ = $1 + $3; }
-    | exp '-' exp         { $$ = $1 - $3; }
-    | exp '*' exp         { $$ = $1 * $3; }
-    | exp '/' exp         { $$ = $1 / $3; }
-    | exp '^' exp         { $$ = pow($1, $3); }
-    | '-' exp %prec UMINUS { $$ = -$2; }
-    | '(' exp ')'         { $$ = $2; }
-    ;
+    NUM             { $$ = $1; }
+  | exp exp '+'     { $$ = $1 + $2; }
+  | exp exp '-'     { $$ = $1 - $2; }
+  | exp exp '*'     { $$ = $1 * $2; }
+  | exp exp '/'     {
+                      if ($2 == 0) {
+                        fprintf(stderr, "Hata: Sıfıra bölme! Payda: %g\n", $2);
+                        $$ = 0;
+                      } else {
+                        $$ = $1 / $2;
+                      }
+                    }
+  | exp exp '^'     { $$ = pow($1, $2); }
+  | exp 'n'         { $$ = -$1; }
+  ;
 
 %%
 
-/* Lexical analyzer: handles numbers, operators, and comments */
 int yylex(void) {
     int c;
 
     while (1) {
         c = getchar();
 
-        // Skip whitespace
+        // Boşluk ve tab atla
         if (c == ' ' || c == '\t') continue;
 
-        // Skip comments: /* ... */
+        // Yorum satırı atla: /* ... */
         if (c == '/') {
             int next = getchar();
             if (next == '*') {
-                // Inside comment
+                int prev = 0;
                 while (1) {
                     c = getchar();
                     if (c == EOF) return 0;
-                    if (c == '*') {
-                        if ((c = getchar()) == '/') break;
-                        else ungetc(c, stdin);
-                    }
+                    if (prev == '*' && c == '/') break;
+                    prev = c;
                 }
                 continue;
             } else {
                 ungetc(next, stdin);
-                return '/'; // Return division operator
+                return '/';
             }
         }
 
-        // Numbers
+        // Sayı
         if (isdigit(c) || c == '.') {
             ungetc(c, stdin);
             scanf("%lf", &yylval);
@@ -83,16 +77,14 @@ int yylex(void) {
 
         if (c == EOF) return 0;
 
-        return c; // Return operator or parenthesis
+        return c;
     }
 }
 
-/* Error handler */
 void yyerror(const char *s) {
     fprintf(stderr, "Hata: %s\n", s);
 }
 
-/* Entry point */
 int main(void) {
     return yyparse();
 }
